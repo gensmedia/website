@@ -594,7 +594,7 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
     meta.querySelector('strong').textContent = f.t;
     meta.querySelector('small').textContent = f.c;
     b.appendChild(meta);
-    b.addEventListener('click', function(){ openPlayer(f); });
+    b.addEventListener('click', function(){ openPlayer(hoverIdx > -1 ? films[hoverIdx] : f); });
     flow.appendChild(b);
     var d = document.createElement('span'); d.className = 'dot'; dotsEl.appendChild(d);
     return b;
@@ -641,9 +641,30 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
     cards.forEach(function(c,j){ c.classList.toggle('hot', j === i); c.classList.toggle('dim', i > -1 && j !== i); });
     if (!hoverRaf) hoverRaf = requestAnimationFrame(tickHover);
   }
+  // which card is hovered is decided from the cards' resting layout, never their animated one,
+  // so a card moving under the cursor can't hand the hover back and forth
+  var lastPX = null, lastPY = null;
+  function pickHover(){
+    if (lastPX === null) return;
+    var r = flow.getBoundingClientRect(), cx = r.left, cy = r.top;
+    var cw = cards[0].offsetWidth || 560, ch = cw * 0.5625, gap = cw * 0.72, best = -1, bestScore = 1e9;
+    cards.forEach(function(c,i){
+      var d = i - workPos, ad = Math.abs(d);
+      if (ad > 2.4) return;
+      var k = 1400 / (1400 + ad * 260), ry = Math.min(Math.abs(d) * 32, 60) * Math.PI / 180;
+      var hw = cw / 2 * k * Math.cos(ry), hh = ch / 2 * k, x = cx + d * gap * k;
+      var stick = i === hoverIdx ? 16 : 0;
+      if (Math.abs(lastPX - x) <= hw + stick && Math.abs(lastPY - cy) <= hh + stick){
+        var score = ad - (i === hoverIdx ? 0.35 : 0);
+        if (score < bestScore){ bestScore = score; best = i; }
+      }
+    });
+    setHover(best);
+  }
+  var workStage = document.querySelector('#work .stage');
+  workStage.addEventListener('pointermove', function(e){ if (e.pointerType !== 'mouse') return; lastPX = e.clientX; lastPY = e.clientY; pickHover(); });
+  workStage.addEventListener('pointerleave', function(){ lastPX = null; setHover(-1); });
   cards.forEach(function(c,i){
-    c.addEventListener('pointerenter', function(e){ if (e.pointerType === 'mouse') setHover(i); });
-    c.addEventListener('pointerleave', function(e){ if (e.pointerType === 'mouse' && hoverIdx === i) setHover(-1); });
     c.addEventListener('focus', function(){ setHover(i); });
     c.addEventListener('blur', function(){ if (hoverIdx === i) setHover(-1); });
   });
@@ -782,7 +803,7 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
         wordEls.forEach(function(w,i){ w.classList.toggle('on', i < lit); });
       } else if (id === 'work'){
         workPos = clamp((pr.p - 0.04) / 0.82, 0, 1) * (cards.length - 1);
-        layoutCards();
+        layoutCards(); pickHover();
       } else if (id === 'services'){
         var n = svcs.length, sp = clamp(pr.p / 0.92, 0, 0.9999) * n, cur = Math.floor(sp), loc = sp - cur;
         svcs.forEach(function(el,i){
