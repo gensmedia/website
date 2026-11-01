@@ -137,14 +137,23 @@ body.light-top::before{background:rgba(243,242,238,.8)}
 #work{height:640vh}
 .work-head{position:absolute;top:calc(max(96px, 50vh - 330px) + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
 .work-head h2{font-size:clamp(36px,5vw,64px);font-weight:650;letter-spacing:-.03em}
-.flow{--cw:min(640px,70vw,calc((100vh - 330px) * 1.7778));position:absolute;left:50%;top:calc(50% + 48px);width:0;height:0;transform-style:preserve-3d}
+.flow{--cw:min(640px,70vw,calc((100vh - 330px) * 1.7778));position:absolute;left:50%;top:calc(50% + 48px);width:0;height:0;transform-style:flat}
+/* .card base */
 .card{position:absolute;width:var(--cw);aspect-ratio:16/9;left:calc(var(--cw) / -2);top:calc(var(--cw) * -.28125);border-radius:18px;overflow:hidden;background:var(--ink-2);border:0;padding:0;cursor:pointer;color:var(--text);text-align:left;box-shadow:0 34px 60px -28px rgba(18,19,22,.45);will-change:transform,opacity;font:inherit}
-.card img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02)}
+.card img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.02);transition:transform 1.1s cubic-bezier(.2,.7,.2,1)}
+.card::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);pointer-events:none}
+.card.hot img{transform:scale(1.08)}
+.card .meta,.card .shade{transition:opacity .4s ease}
+.card .shade{opacity:.9}
+.card.hot .shade{opacity:1}
 .card .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 45%,rgba(0,0,0,.72))}
 .card .meta{position:absolute;left:22px;right:22px;bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
 .card .meta strong{font-family:var(--display);font-size:clamp(17px,2vw,22px);font-weight:600;line-height:1.2}
 .card .meta small{display:block;font-size:13px;color:var(--muted);margin-top:4px;font-weight:400}
-.card .play{flex:none;width:46px;height:46px;border-radius:50%;background:rgba(244,244,241,.92);display:flex;align-items:center;justify-content:center}
+.card .play{flex:none;width:46px;height:46px;border-radius:50%;background:rgba(244,244,241,.92);display:flex;align-items:center;justify-content:center;transition:transform .45s cubic-bezier(.2,.7,.2,1),background .3s}
+.card .play path{transition:fill .3s}
+.card.hot .play{transform:scale(1.18);background:#00B4F0}
+.card.hot .play path{fill:#fff}
 .card[data-fallback] img{display:none}
 .work-foot{position:absolute;left:0;right:0;bottom:calc(40px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 20px}
 .dot{width:6px;height:6px;border-radius:3px;background:var(--paper-dim);transition:width .35s,background .35s}
@@ -592,6 +601,53 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
   });
   var dots = dotsEl.children;
 
+  /* ---------- card spotlight on hover ---------- */
+  var workPos = 0, hoverIdx = -1, hv = films.map(function(){ return 0; }), hoverRaf = 0;
+  function layoutCards(){
+    var cw = cards[0].offsetWidth || 560, gap = cw * 0.72, anyH = 0;
+    hv.forEach(function(h){ anyH = Math.max(anyH, h); });
+    cards.forEach(function(c,i){
+      var d = i - workPos, ad = Math.abs(d), h = hv[i];
+      var x = d * gap, z = (-ad * 260) * (1 - h) + 90 * h, ry = clamp(-d * 32, -60, 60) * (1 - h * 0.8), sc = 1 + h * 0.04;
+      c.style.transform = 'perspective(1400px) translate3d(' + x.toFixed(1) + 'px,' + (-h * 10).toFixed(1) + 'px,' + z.toFixed(1) + 'px) rotateY(' + ry.toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
+      var others = Math.max(0, anyH - h);
+      // solid cards; depth reads through light, not transparency
+      c.style.opacity = Math.max(clamp(2.6 - ad, 0, 1), h).toFixed(3);
+      var bright = (1 - Math.min(ad, 2) * 0.09) * (1 - others * 0.28) + h * 0.04, sat = 1 - others * 0.45;
+      c.style.filter = 'brightness(' + bright.toFixed(3) + ') saturate(' + sat.toFixed(3) + ')';
+      // each card casts its shadow outward, onto the card tucked behind it
+      var dir = d === 0 ? 0 : (d > 0 ? 1 : -1), side = dir * Math.min(ad, 1) * (1 - h);
+      c.style.boxShadow = (side * 26).toFixed(1) + 'px 26px 46px -14px rgba(10,11,14,' + (0.5 + h * 0.15).toFixed(2) + '), ' +
+        (side * 8).toFixed(1) + 'px 0 14px -4px rgba(10,11,14,' + (0.35 * (1 - h)).toFixed(2) + '), ' +
+        '0 ' + (40 + h * 20).toFixed(0) + 'px ' + (80 + h * 30).toFixed(0) + 'px -36px rgba(10,11,14,' + (0.45 + h * 0.2).toFixed(2) + ')';
+      c.style.zIndex = String(h > 0.02 ? 200 + Math.round(h * 50) : 100 - Math.round(ad * 10));
+      c.tabIndex = ad < 0.5 || h > 0.5 ? 0 : -1;
+      if (dots[i]) dots[i].classList.toggle('on', Math.round(workPos) === i);
+    });
+  }
+  function tickHover(){
+    var moving = false;
+    hv = hv.map(function(h,i){
+      var target = i === hoverIdx ? 1 : 0, nh = h + (target - h) * 0.14;
+      if (Math.abs(target - nh) < 0.002) nh = target; else moving = true;
+      return nh;
+    });
+    layoutCards();
+    hoverRaf = moving ? requestAnimationFrame(tickHover) : 0;
+  }
+  function setHover(i){
+    if (hoverIdx === i) return;
+    hoverIdx = i;
+    cards.forEach(function(c,j){ c.classList.toggle('hot', j === i); c.classList.toggle('dim', i > -1 && j !== i); });
+    if (!hoverRaf) hoverRaf = requestAnimationFrame(tickHover);
+  }
+  cards.forEach(function(c,i){
+    c.addEventListener('pointerenter', function(e){ if (e.pointerType === 'mouse') setHover(i); });
+    c.addEventListener('pointerleave', function(e){ if (e.pointerType === 'mouse' && hoverIdx === i) setHover(-1); });
+    c.addEventListener('focus', function(){ setHover(i); });
+    c.addEventListener('blur', function(){ if (hoverIdx === i) setHover(-1); });
+  });
+
   /* ---------- player ---------- */
   var dlg = document.getElementById('player'), frame = document.getElementById('frame');
   function openPlayer(f){
@@ -725,16 +781,8 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
         var lit = Math.floor(clamp(pr.p / 0.8, 0, 1) * (wordEls.length + 1));
         wordEls.forEach(function(w,i){ w.classList.toggle('on', i < lit); });
       } else if (id === 'work'){
-        var pos = clamp((pr.p - 0.04) / 0.82, 0, 1) * (cards.length - 1);
-        var cw = cards[0].offsetWidth || 560, gap = cw * 0.72;
-        cards.forEach(function(c,i){
-          var d = i - pos, ad = Math.abs(d);
-          c.style.transform = 'translate3d(' + (d * gap).toFixed(1) + 'px,0,' + (-ad * 260).toFixed(1) + 'px) rotateY(' + clamp(-d * 32, -60, 60).toFixed(2) + 'deg)';
-          c.style.opacity = clamp(1.25 - ad * 0.38, 0, 1).toFixed(3);
-          c.style.zIndex = String(100 - Math.round(ad * 10));
-          c.tabIndex = ad < 0.5 ? 0 : -1;
-          dots[i].classList.toggle('on', Math.round(pos) === i);
-        });
+        workPos = clamp((pr.p - 0.04) / 0.82, 0, 1) * (cards.length - 1);
+        layoutCards();
       } else if (id === 'services'){
         var n = svcs.length, sp = clamp(pr.p / 0.92, 0, 0.9999) * n, cur = Math.floor(sp), loc = sp - cur;
         svcs.forEach(function(el,i){
