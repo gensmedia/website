@@ -113,7 +113,7 @@ body.light-top::before{background:rgba(243,242,238,.8)}
 .no-webgl #lens{opacity:1}
 .world-copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;padding:80px var(--gutter-r) 80px var(--gutter);opacity:0;pointer-events:none}
 .world-copy .big{font-family:var(--display);font-size:clamp(30px,4.4vw,60px);line-height:1.08;font-weight:600;letter-spacing:-.03em;max-width:16ch;text-wrap:balance;text-shadow:0 2px 30px rgba(0,0,0,.6)}
-.hero-copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:18px;padding:calc(88px + 7vh) var(--gutter-r) 80px var(--gutter)}
+.hero-copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;gap:18px;padding:calc(76px + 4vh) var(--gutter-r) 80px var(--gutter)}
 .hero-copy h1{font-size:clamp(42px,6.6vw,96px);line-height:.98;font-weight:650;letter-spacing:-.035em}
 .hero-copy h1 em{font-style:normal;color:var(--accent)}
 .hero-copy .sub{font-size:clamp(18px,1.8vw,22px);color:var(--muted);max-width:30ch}
@@ -159,8 +159,9 @@ body.light-top::before{background:rgba(243,242,238,.8)}
 .svc .label,#services .svc-head .label{color:rgba(255,255,255,.78)}
 .svc p{font-size:clamp(18px,1.7vw,22px);color:rgba(255,255,255,.86);max-width:28ch}
 .svc-nav{position:absolute;left:0;right:0;bottom:calc(36px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding:0 16px}
-.svc-nav span{font-size:13px;padding:8px 14px;border-radius:999px;color:rgba(255,255,255,.62);transition:color .3s,background .3s}
-.svc-nav span.on{color:#fff;background:rgba(255,255,255,.18)}
+.svc-nav button{font:inherit;font-size:13px;min-height:40px;padding:8px 16px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:color .3s,background .3s}
+.svc-nav button:hover{color:#fff;background:rgba(255,255,255,.1)}
+.svc-nav button.on{color:#fff;background:rgba(255,255,255,.2)}
 .svc-head{position:absolute;top:calc(96px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center}
 .viz{position:relative;aspect-ratio:4/3;max-width:100%;border-radius:22px;background:rgba(0,0,0,.18);overflow:hidden;display:flex;align-items:center;justify-content:center}
 /* brand film viz */
@@ -438,7 +439,7 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
           </div>
         </article>
 
-        <div class="svc-nav" id="svcnav" aria-hidden="true"><span>Brand Films</span><span>Testimonials</span><span>Live Events</span><span>Scripts and Voiceover</span></div>
+        <nav class="svc-nav" id="svcnav" aria-label="Services"><button type="button">Brand Films</button><button type="button">Testimonials</button><button type="button">Live Events</button><button type="button">Scripts and Voiceover</button></nav>
       </div>
     </div>
   </section>
@@ -674,6 +675,15 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
   var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
   var svcs = Array.prototype.slice.call(document.querySelectorAll('.svc'));
   var svcNav = document.getElementById('svcnav').children;
+  Array.prototype.forEach.call(svcNav, function(btn, i){
+    btn.addEventListener('click', function(){
+      var sc = document.getElementById('services');
+      if (reduce){ var el = sc.querySelectorAll('.svc')[i]; if (el) el.scrollIntoView({behavior:'auto', block:'start'}); return; }
+      var n = svcNav.length, span = sc.offsetHeight - window.innerHeight;
+      var y = sc.offsetTop + span * ((i + 0.4) / n) * 0.92;
+      window.scrollTo({ top: Math.round(y), behavior: 'smooth' });
+    });
+  });
   var svcColors = ['var(--c-film)','var(--c-quote)','var(--c-live)','var(--c-voice)'];
   var heroFlash = 0, navEl = document.querySelector('.nav');
   var toned = Array.prototype.slice.call(document.querySelectorAll('[data-tone]'));
@@ -739,6 +749,7 @@ dialog::backdrop{background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);ba
           el.style.opacity = op.toFixed(3);
           el.style.visibility = op < 0.01 ? 'hidden' : 'visible';
           svcNav[i].classList.toggle('on', cur === i);
+          svcNav[i].setAttribute('aria-current', cur === i ? 'true' : 'false');
         });
         sc.querySelector('.stage').style.backgroundColor = svcColors[cur];
       }
@@ -823,9 +834,12 @@ const rubber = new THREE.MeshStandardMaterial({ color: 0x0f0f11, metalness: 0, r
 const chrome = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, metalness: 1, roughness: .16, envMapIntensity: 1.5 });
 const interior = new THREE.MeshStandardMaterial({ color: 0x040405, metalness: 0, roughness: .96, side: THREE.BackSide });
 const bladeMat = new THREE.MeshStandardMaterial({ color: 0x1a1b1f, metalness: .75, roughness: .4, side: THREE.DoubleSide, envMapIntensity: 1.2 });
+// blades are trimmed to the barrel in the iris's own space, so they stay centered and contained however the lens moves
+const irisInv = { value: new THREE.Matrix4() };
 bladeMat.onBeforeCompile = (sh) => {
-  sh.vertexShader = 'varying vec3 vIrisW;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvIrisW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-  sh.fragmentShader = 'varying vec3 vIrisW;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n if (length(vIrisW.xy) > 1.01) discard;');
+  sh.uniforms.uIrisInv = irisInv;
+  sh.vertexShader = 'uniform mat4 uIrisInv;\nvarying vec3 vIrisL;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvIrisL = (uIrisInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = 'varying vec3 vIrisL;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n if (length(vIrisL.xy) > 1.0) discard;');
 };
 const accent = new THREE.MeshStandardMaterial({ color: 0x4cc9ff, emissive: 0x4cc9ff, emissiveIntensity: .9, metalness: .2, roughness: .3 });
 // coated glass: reflections and thin-film color are added over whatever sits behind the element
@@ -1028,6 +1042,7 @@ addEventListener('resize', resize); resize();
 
 /* ---------- scroll timeline ---------- */
 let tmx = 0, tmy = 0, mx = 0, my = 0;
+let curP = 0;
 addEventListener('pointermove', e => { tmx = e.clientX / innerWidth - .5; tmy = e.clientY / innerHeight - .5; }, { passive: true });
 const look = new THREE.Vector3(), from = new THREE.Vector3();
 function heroProgress() {
@@ -1038,22 +1053,23 @@ function update(p, t) {
   const far = camera.userData.base || 1;
   // A: hero composition, B: swing to face the lens, C: dolly to the glass, D: through the tube, E: into the world
   const b = ease(seg(p, .12, .46)), c = ease(seg(p, .46, .66)), d = ease(seg(p, .66, .80)), e = seg(p, .80, 1);
-  from.set(lerp(7.4 * far, 0, b), lerp(3.0, 0, b), lerp(9.4 * far, 3.4, b));
+  from.set(lerp(6.1 * far, 0, b), lerp(2.2, 0, b), lerp(8.0 * far, 3.4, b));
   from.z = lerp(from.z, .35, c);
   from.z = lerp(from.z, -3.6, d);
   from.z = lerp(from.z, -48, e);
-  look.set(lerp(-.35, 0, b), lerp(.6, 0, b), lerp(-1.6, -6, b));
+  look.set(lerp(-.6, 0, b), lerp(.35, 0, b), lerp(-1.6, -6, b));
   look.z = Math.min(look.z, from.z - 4);
-  const idle = 1 - seg(p, .06, .3);
-  from.x += (mx * .9 + Math.sin(t * .00031) * .25) * idle;
-  from.y += (-my * .6 + Math.cos(t * .00027) * .12) * idle;
+  const idle = 1 - ease(seg(p, .015, .3));
+  from.x += (mx * .5 + Math.sin(t * .00031) * .25) * idle;
+  from.y += (-my * .35 + Math.cos(t * .00027) * .12) * idle;
   camera.position.copy(from); camera.lookAt(look);
   camera.rotation.z += e * .35;
   camera.fov = lerp(lerp(lerp(32, 30, c), 60, d), 78, e);
   const vw = canvas.clientWidth || innerWidth, vh = canvas.clientHeight || innerHeight;
-  camera.setViewOffset(vw, vh, 0, -vh * (far > 1 ? .2 : .25) * (1 - b), vw, vh);
+  camera.setViewOffset(vw, vh, 0, -vh * (far > 1 ? .145 : .16) * (1 - b), vw, vh);
   camera.updateProjectionMatrix();
-  lens.rotation.y = Math.sin(t * .00022) * .05 * idle;
+  lens.rotation.y = (Math.sin(t * .00022) * .08 + mx * .55) * idle;
+  lens.rotation.x = (my * .3) * idle;
   focus.rotation.z = p * 2.2;
   setIris(lerp(.22, .99, ease(seg(p, .4, .68))));
   const near = seg(p, .4, .6);
@@ -1072,10 +1088,12 @@ function update(p, t) {
 
 let first = true;
 function frame(t) {
+  const hp = heroProgress(); curP = hp.p;
   mx += (tmx - mx) * .05; my += (tmy - my) * .05;
-  const hp = heroProgress();
   if (hp.visible || first) {
     update(reduce ? 0 : hp.p, reduce ? 0 : t);
+    iris.updateWorldMatrix(true, false);
+    irisInv.value.copy(iris.matrixWorld).invert();
     composer.render();
     if (first) { canvas.classList.add('ready'); first = false; }
   }
