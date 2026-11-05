@@ -11,7 +11,8 @@ The Gens Media website. One static page (`index.html`) with no build step, hoste
 | `logo.svg`, `logo-512.png` | The Gens Media logo as a vector and a square icon |
 | `og.png` | Image shown when the link is shared on social or in messages |
 | `robots.txt`, `sitemap.xml` | Search engine discovery |
-| `vercel.json` | Clean URLs, redirects from the old Wix paths, security headers |
+| `fonts/` | Self-hosted Geist and Geist Mono (SIL Open Font License), cached long term |
+| `vercel.json` | Clean URLs, redirects from the old Wix paths, security and cache headers |
 
 ## Editing
 
